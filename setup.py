@@ -9,8 +9,8 @@ with open('README.md', 'r') as fh:
 
 setup(
     name='tfwn',
-    version='1.0.0',
-    description='F1-score metric for TensorFlow',
+    version='1.0.1',
+    description='Weight normalization layer for TensorFlow',
     long_description=long_description,
     long_description_content_type="text/markdown",
     url='https://github.com/shkarupa-alex/tfwn',
