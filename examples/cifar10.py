@@ -89,27 +89,30 @@ def run_cifar10(weight_norm, batch_size, epoch_count, learning_rate):
     datagen = ImageDataGenerator(featurewise_center=True, zca_whitening=True)
     datagen.fit(train_x)
 
+    train_x, test_x = datagen.standardize(train_x), datagen.standardize(test_x)
+
+    train_x, train_y = train_x, train_y
+
     model = Cifar10(weight_norm)
     model.compile(
         optimizer=keras.optimizers.Adam(lr=learning_rate, beta_1=0.9),
         loss='categorical_crossentropy',
         metrics=['accuracy'],
     )
+    model.summary()
 
-    lr_decay = keras.callbacks.LearningRateScheduler(
-        lambda epoch: learning_rate * np.minimum(2. - epoch * 2 / epoch_count, 1.))
+    def _lr_beta_decay(epoch, logs):
+        K.set_value(model.optimizer.lr, learning_rate * np.minimum(2. - epoch * 2 / epoch_count, 1.))
+        K.set_value(model.optimizer.beta_1, 0.5 if epoch > epoch_count // 2 else 0.9)
 
-    beta1_decay = keras.callbacks.LambdaCallback(
-        on_epoch_begin=lambda epoch, logs:
-        K.set_value(model.optimizer.beta_1, 0.5) if epoch > epoch_count // 2 else None,
-    )
+    lr_beta_decay = keras.callbacks.LambdaCallback(_lr_beta_decay)
 
-    return model.fit_generator(
-        datagen.flow(train_x, train_y, batch_size=batch_size),
-        steps_per_epoch=len(train_x) / batch_size,
+    return model.fit(
+        train_x, train_y,
+        batch_size=batch_size,
         epochs=epoch_count,
-        validation_data=datagen.flow(test_x, test_y, batch_size=batch_size),
-        callbacks=[lr_decay, beta1_decay],
+        validation_data=(test_x, test_y),
+        callbacks=[lr_beta_decay],
     ).history
 
 
@@ -165,14 +168,14 @@ if __name__ == "__main__":
     np.random.seed(argv.random_seed)
     K.random_ops.random_seed.set_random_seed(argv.random_seed)
 
-    regular_metrics = run_cifar10(
-        weight_norm=False,
+    weighted_metrics = run_cifar10(
+        weight_norm=True,
         batch_size=argv.batch_size,
         epoch_count=argv.epoch_count,
         learning_rate=argv.initial_lr,
     )
-    weighted_metrics = run_cifar10(
-        weight_norm=True,
+    regular_metrics = run_cifar10(
+        weight_norm=False,
         batch_size=argv.batch_size,
         epoch_count=argv.epoch_count,
         learning_rate=argv.initial_lr,
